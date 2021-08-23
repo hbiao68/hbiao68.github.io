@@ -1,0 +1,257 @@
+@[toc]
+
+# 一、文章参考
+1. [阮一峰 —— async函数](https://es6.ruanyifeng.com/#docs/async)
+
+# 二、async语法说明
+
+1. async函数返回一个 Promise 对象，可以使用then方法添加回调函数
+
+2. 当函数执行的时候，一旦遇到await就会先返回，等到异步操作完成，再接着执行函数体内后面的语句
+
+3. 函数内部如果抛出错误，会被then的第二个参数或者catch 捕获到
+
+# 三、async命令
+
+## 3.1 定义 async 函数
+
+```js
+// 函数声明
+async function foo() {}
+
+// 函数表达式
+const foo = async function () {};
+
+// 对象的方法
+let obj = { async foo() {} };
+obj.foo().then(...)
+
+// Class 的方法
+class Storage {
+  constructor() {
+    this.cachePromise = caches.open('avatars');
+  }
+
+  async getAvatar(name) {
+    const cache = await this.cachePromise;
+    return cache.match(`/avatars/${name}.jpg`);
+  }
+}
+
+const storage = new Storage();
+storage.getAvatar('jake').then(…);
+
+// 箭头函数
+const foo = async () => {};
+```
+
+## 3.2 async函数返回一个 Promise 对象。
+
+1. 正常返回
+```js
+async function f() {
+  return 'hello world';
+}
+
+f().then(v => console.log(v))
+// "hello world"
+```
+
+2. 返回异常
+
+```js
+async function f() {
+  throw new Error('出错了');
+}
+
+f().then(
+  v => console.log('resolve', v),
+  e => console.log('reject', e)
+)
+//reject Error: 出错了
+```
+
+## 3.3 Promise 对象的状态变化
+
+async函数返回的 Promise 对象，必须等到内部所有await命令后面的 Promise 对象执行完，才会发生状态改变，除非遇到return语句或者抛出错误
+
+```js
+async function getTitle(url) {
+  let response = await fetch(url);
+  let html = await response.text();
+  return html.match(/<title>([\s\S]+)<\/title>/i)[1];
+}
+getTitle('https://tc39.github.io/ecma262/').then(console.log)
+// "ECMAScript 2017 Language Specification"
+```
+
+
+# 四、await 命令
+
+## 4.1 await命令只能出现在 async 函数内部，否则都会报错。
+```js
+// 报错
+const data = await fetch('https://api.example.com');
+```
+
+## 4.2 await 命令返回的值
+
+1. await命令后面是一个 Promise 对象，返回该对象的结果。await 会调用后面promise的then方法，并接受其resolve的返回值
+
+```js
+function timeout(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function asyncPrint(value, ms) {
+  await timeout(ms);
+  console.log(value);
+}
+
+asyncPrint('hello world', 50);
+```
+
+2. 如果不是 Promise 对象，就直接返回对应的值。
+```js
+async function f() {
+  return 'hello world';
+}
+
+f().then(v => console.log(v))
+// "hello world"
+```
+
+# 五、 async与await 使用注意事项
+
+5.1 await命令后面的Promise对象，运行结果可能是rejected，所以最好把await命令放在try...catch代码块中。
+
+5.2多个await命令后面的异步操作，如果不存在继发关系，最好让它们同时触发。
+```js
+let foo = await getFoo();
+let bar = await getBar();
+```
+改为
+```js
+let [foo, bar] = await Promise.all([getFoo(), getBar()]);
+let fooPromise = getFoo();
+let barPromise = getBar();
+let foo = await fooPromise;
+let bar = await barPromise;
+```
+
+
+
+
+
+5.3 await命令只能用在async函数之中，如果用在普通函数，就会报错。
+
+```js
+function dbFuc(db) { //这里不需要 async
+  let docs = [{}, {}, {}];
+
+  // 可能得到错误结果
+  docs.forEach(async function (doc) {
+    await db.post(doc);
+  });
+}
+```
+
+
+# 六、案例
+
+## 6.1快速入门
+```js
+// async函数返回一个 Promise 对象，可以使用then方法添加回调函数
+function timeout(ms) {
+  return new Promise((resolve) => {
+    setTimeout(function(){
+        console.log("-----ok-----")
+        resolve('我是传递给then方法的参数');
+    }, ms);
+  });
+}
+
+async function asyncPrint(value, ms) {
+  // await 会等待 promise 执行 resolve方法，resolve传递的参数就是await的结果
+  var result = await timeout(ms);
+  console.log('result:' + result);
+  console.log(value);
+}
+
+asyncPrint('hello world', 1500);
+```
+
+## 6.2 拆分prmomise链
+
+```js
+function getEmailStr () {
+    // fetch 返回的是 promise 对象
+    return fetch("https://randomuser.me/api/",{
+        method:"GET"
+    });
+}
+```
+
+```js 
+async function asyncMainNew () {
+    // 获取服务器返回的数据对象
+    var firstRes = await getEmailStr();
+    // 将服务器返回的数据转为JSON,返回的是一个promise对象
+    var firstPromise = firstRes.json();
+    // 定义promise成功的回调方法
+    firstPromise.then(function (serverData) {
+        console.dir(serverData)
+        debugger
+    })
+}
+// asyncMainNew();
+```
+
+
+```js
+async function asyncMain () {
+    // promise的链式调用
+    var firstData = await getEmailStr().then(function (res){
+        // 返回一个新的promise
+        return res.json();
+    });
+    console.dir(firstData);
+}
+// asyncMainNew();
+```
+
+
+```js
+async function asyncMainNew () {
+    // 获取服务器返回的对象
+    var firstRes = await getEmailStr();
+    // 将服务器返回的数据转为JSON,返回的是一个promise对象
+    var firstPromise = firstRes.json();
+    // 定义promise成功的回调方法
+    firstPromise.then(function (serverData) {
+      console.dir(serverData)
+    })
+}
+```
+
+## 6.3 fetch请求数据处理
+```js
+function getEmailStr () {
+	// 返回一个promise
+    return fetch("https://randomuser.me/api/",{
+        method:"GET"
+    }).then(function (res) {
+		// 返回第二个promise
+        return res.json();
+    });
+}
+
+async function asyncMain () {
+    var firstData = await getEmailStr()
+    console.dir(firstData);
+}
+
+asyncMain();
+```
