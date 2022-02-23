@@ -1,2 +1,2 @@
 # 目录
-1. [react](./react)
+*. [react](./react)
